@@ -1,0 +1,32 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Invoice</title>
+<style>
+body{font:16px/1.5 system-ui,sans-serif;margin:0;background:#f4f4f1;color:#1c1c1a}
+.p{max-width:640px;margin:0 auto;padding:16px}
+.inv{background:#fff;border-radius:12px;padding:22px;box-shadow:0 1px 6px #0002}
+h1{margin:0;font-size:22px}.m{color:#666;font-size:14px}
+table{width:100%;border-collapse:collapse;margin:18px 0}
+th,td{padding:8px 4px;border-bottom:1px solid #e5e5e0;text-align:left}.r{text-align:right}
+.t{font-size:20px;font-weight:700;text-align:right}
+button{margin-top:16px;width:100%;padding:14px;font-size:16px;border:0;border-radius:10px;background:#2557a7;color:#fff}
+@media print{body{background:#fff}.inv{box-shadow:none}button{display:none}}
+</style></head><body><div class="p"><div class="inv" id="app">Loading invoice…</div>
+<button onclick="print()">Download / Save as PDF</button></div>
+<script>
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+(async()=>{const el=document.getElementById('app');
+try{
+ const b=location.hash.slice(1).replace(/-/g,'+').replace(/_/g,'/');
+ const bin=Uint8Array.from(atob(b+'='.repeat((4-b.length%4)%4)),c=>c.charCodeAt(0));
+ const s=new Blob([bin]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+ const [biz,no,date,cust,items,note,cur]=JSON.parse(await new Response(s).text());
+ const f=n=>(cur||'')+n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+ let tot=0;
+ const rows=items.map(([n,q,p])=>{tot+=q*p;return `<tr><td>${esc(n)}</td><td class="r">${q}</td><td class="r">${f(p)}</td><td class="r">${f(q*p)}</td></tr>`}).join('');
+ document.title='Invoice '+no;
+ el.innerHTML=`<h1>${esc(biz||'Invoice')}</h1><div class="m">Invoice ${esc(no)} · ${esc(date)}</div>
+ <p><span class="m">Billed to</span><br><b>${esc(cust)}</b></p>
+ <table><tr><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr>${rows}</table>
+ <div class="t">Total ${f(tot)}</div>${note?`<p class="m">${esc(note)}</p>`:''}`;
+}catch(e){el.textContent='This invoice link is invalid or incomplete.'}})();
+</script></body></html>
